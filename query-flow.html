@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG Chatbot - Query Flow</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 40px 24px;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #475569;
+    margin-bottom: 40px;
+    letter-spacing: 0.03em;
+  }
+
+  /* Swimlane container */
+  .swimlanes {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+    max-width: 1000px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .lane {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 16px;
+    position: relative;
+  }
+
+  .lane-header {
+    width: 100%;
+    text-align: center;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .lane-header.frontend { background: #1e3a5f; color: #60a5fa; border: 1px solid #1d4ed8; }
+  .lane-header.backend  { background: #2d1b4e; color: #c084fc; border: 1px solid #7c3aed; }
+  .lane-header.external { background: #1a3326; color: #4ade80; border: 1px solid #16a34a; }
+
+  /* Vertical spine line per lane */
+  .lane::before {
+    content: '';
+    position: absolute;
+    top: 52px;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    background: #1e293b;
+    z-index: 0;
+  }
+
+  /* Step cards */
+  .step {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 0;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    border: 1px solid transparent;
+    cursor: default;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  .step:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+
+  .step.frontend {
+    background: #0f2744;
+    border-color: #1d4ed8;
+  }
+  .step.backend {
+    background: #1a0f2e;
+    border-color: #6d28d9;
+  }
+  .step.claude {
+    background: #2a1a0a;
+    border-color: #c2410c;
+  }
+  .step.chromadb {
+    background: #0a1f14;
+    border-color: #15803d;
+  }
+  .step.decision {
+    background: #1a1a0a;
+    border-color: #ca8a04;
+    border-style: dashed;
+    border-width: 2px;
+  }
+
+  .step-num {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-align: center;
+    line-height: 20px;
+    margin-bottom: 6px;
+  }
+
+  .step.frontend .step-num  { background: #1d4ed8; color: #fff; }
+  .step.backend .step-num   { background: #6d28d9; color: #fff; }
+  .step.claude .step-num    { background: #c2410c; color: #fff; }
+  .step.chromadb .step-num  { background: #15803d; color: #fff; }
+  .step.decision .step-num  { background: #ca8a04; color: #fff; }
+
+  .step-title {
+    font-weight: 700;
+    font-size: 0.72rem;
+    margin-bottom: 3px;
+    display: block;
+  }
+
+  .step.frontend .step-title  { color: #60a5fa; }
+  .step.backend .step-title   { color: #c084fc; }
+  .step.claude .step-title    { color: #fb923c; }
+  .step.chromadb .step-title  { color: #4ade80; }
+  .step.decision .step-title  { color: #fbbf24; }
+
+  .step-file {
+    font-size: 0.62rem;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    color: #475569;
+    margin-bottom: 4px;
+  }
+
+  .step-desc {
+    color: #94a3b8;
+    font-size: 0.7rem;
+  }
+
+  /* Spacer rows to align steps across lanes */
+  .spacer {
+    width: 100%;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Arrows between steps */
+  .arrow-down {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+    padding: 4px 0;
+  }
+
+  .arrow-down svg {
+    display: block;
+  }
+
+  /* Cross-lane arrow (horizontal) */
+  .cross-arrow {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 0;
+  }
+
+  /* Row wrapper for horizontal alignment */
+  .row {
+    display: contents;
+  }
+
+  /* Grid row spacer */
+  .grid-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+    max-width: 1000px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .grid-row .cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 16px;
+  }
+
+  /* Connector arrows within grid rows */
+  .v-arrow {
+    display: flex;
+    justify-content: center;
+    padding: 5px 0;
+    color: #334155;
+    font-size: 14px;
+  }
+
+  .h-connector {
+    position: absolute;
+    top: 50%;
+    height: 1px;
+    background: #334155;
+    z-index: 0;
+  }
+
+  /* Decision branch labels */
+  .branch-label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+
+  .branch-yes { background: #14532d; color: #4ade80; }
+  .branch-no  { background: #451a03; color: #fb923c; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 36px;
+    padding-top: 24px;
+    border-top: 1px solid #1e293b;
+    max-width: 1000px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.68rem;
+    color: #64748b;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+</style>
+</head>
+<body>
+
+<h1>RAG Chatbot - Query Flow</h1>
+<p class="subtitle">End-to-end lifecycle of a user query - from browser to Claude API to ChromaDB and back</p>
+
+<!-- Lane headers -->
+<div class="swimlanes" style="margin-bottom:0;">
+  <div class="lane" style="padding-bottom:0;">
+    <div class="lane-header frontend">Browser / Frontend</div>
+  </div>
+  <div class="lane" style="padding-bottom:0;">
+    <div class="lane-header backend">Backend (Python)</div>
+  </div>
+  <div class="lane" style="padding-bottom:0;">
+    <div class="lane-header external">External Services</div>
+  </div>
+</div>
+
+<!-- Step rows -->
+
+<!-- Row 1: User sends message (Frontend) -->
+<div class="grid-row">
+  <div class="cell">
+    <div class="step frontend" style="width:100%;">
+      <div class="step-num">1</div>
+      <span class="step-title">User sends message</span>
+      <div class="step-file">script.js - sendMessage()</div>
+      <div class="step-desc">Input captured, input disabled, loading bubble shown. POST /api/query with <code style="color:#93c5fd;font-size:0.65rem;">{query, session_id}</code></div>
+    </div>
+    <div class="v-arrow">▼</div>
+  </div>
+  <div class="cell"></div>
+  <div class="cell"></div>
+</div>
+
+<!-- Row 2: FastAPI receives (Backend) -->
+<div class="grid-row">
+  <div class="cell"></div>
+  <div class="cell">
+    <div class="step backend" style="width:100%;">
+      <div class="step-num">2</div>
+      <span class="step-title">FastAPI receives request</span>
+      <div class="step-file">app.py - query_documents()</div>
+      <div class="step-desc">Validates body via Pydantic. Creates session if <code style="color:#d8b4fe;font-size:0.65rem;">session_id</code> is null. Calls <code style="color:#d8b4fe;font-size:0.65rem;">rag_system.query()</code></div>
+    </div>
+    <div class="v-arrow">▼</div>
+  </div>
+  <div class="cell"></div>
+</div>
+
+<!-- Row 3: RAGSystem (Backend) -->
+<div class="grid-row">
+  <div class="cell"></div>
+  <div class="cell">
+    <div class="step backend" style="width:100%;">
+      <div class="step-num">3</div>
+      <span class="step-title">RAGSystem orchestrates</span>
+      <div class="step-file">rag_system.py - query()</div>
+      <div class="step-desc">Wraps prompt. Fetches conversation history from <code style="color:#d8b4fe;font-size:0.65rem;">SessionManager</code>. Calls <code style="color:#d8b4fe;font-size:0.65rem;">ai_generator.generate_response()</code> with tool definitions.</div>
+    </div>
+    <div class="v-arrow">▼</div>
+  </div>
+  <div class="cell"></div>
+</div>
+
+<!-- Row 4: Claude API Call #1 (External) -->
+<div class="grid-row">
+  <div class="cell"></div>
+  <div class="cell"></div>
+  <div class="cell">
+    <div class="step claude" style="width:100%;">
+      <div class="step-num">4</div>
+      <span class="step-title">Claude API - Call #1</span>
+      <div class="step-file">ai_generator.py - generate_response()</div>
+      <div class="step-desc">Sends system prompt + query + <code style="color:#fdba74;font-size:0.65rem;">search_course_content</code> tool. <code style="color:#fdba74;font-size:0.65rem;">tool_choice: auto</code></div>
+    </div>
+    <div class="v-arrow">▼</div>
+  </div>
+</div>
+
+<!-- Row 5: Decision (External) -->
+<div class="grid-row">
+  <div class="cell"></div>
+  <div class="cell"></div>
+  <div class="cell">
+    <div class="step decision" style="width:100%;">
+      <div class="step-num">5</div>
+      <span class="step-title">Claude decides</span>
+      <div class="step-file">stop_reason check</div>
+      <div class="step-desc">
+        <span class="branch-label branch-yes">Course-specific</span> - tool_use → run search<br>
+        <span class="branch-label branch-no" style="margin-top:4px;display:inline-block;">General knowledge</span> - end_turn → skip to synthesis
+      </div>
+    </div>
+    <div class="v-arrow">▼</div>
+  </div>
+</div>
+
+<!-- Row 6: Tool Execution (Backend) - only on course-specific path -->
+<div class="grid-row">
+  <div class="cell"></div>
+  <div class="cell">
+    <div class="step backend" style="width:100%;border-style:dashed;">
+      <div class="step-num">6</div>
+      <span class="step-title">Tool execution</span>
+      <div class="step-file">ai_generator.py - _handle_tool_execution()</div>
+      <div class="step-desc">Appends Claude's <code style="color:#d8b4fe;font-size:0.65rem;">tool_use</code> block to message history. Calls <code style="color:#d8b4fe;font-size:0.65rem;">tool_manager.execute_tool()</code></div>
+    </div>
+    <div class="v-arrow">▼</div>
+  </div>
+  <div class="cell"></div>
+</div>
+
+<!-- Row 7: CourseSearchTool (Backend) -->
+<div class="grid-row">
+  <div class="cell"></div>
+  <div class="cell">
+    <div class="step backend" style="width:100%;border-style:dashed;">
+      <div class="step-num">7</div>
+      <span class="step-title">CourseSearchTool</span>
+      <div class="step-file">search_tools.py - execute()</div>
+      <div class="step-desc">Resolves course name via <code style="color:#d8b4fe;font-size:0.65rem;">course_catalog</code> (fuzzy match). Queries <code style="color:#d8b4fe;font-size:0.65rem;">course_content</code> with optional lesson filter.</div>
+    </div>
+    <div class="v-arrow">▼</div>
+  </div>
+  <div class="cell"></div>
+</div>
+
+<!-- Row 8: ChromaDB (External) -->
+<div class="grid-row">
+  <div class="cell"></div>
+  <div class="cell"></div>
+  <div class="cell">
+    <div class="step chromadb" style="width:100%;border-style:dashed;">
+      <div class="step-num">8</div>
+      <span class="step-title">ChromaDB search</span>
+      <div class="step-file">vector_store.py - search()</div>
+      <div class="step-desc">Cosine similarity search using <code style="color:#86efac;font-size:0.65rem;">all-MiniLM-L6-v2</code>. Returns top 5 chunks with course/lesson metadata.</div>
+    </div>
+    <div class="v-arrow">▼</div>
+  </div>
+</div>
+
+<!-- Row 9: Claude API Call #2 (External) -->
+<div class="grid-row">
+  <div class="cell"></div>
+  <div class="cell"></div>
+  <div class="cell">
+    <div class="step claude" style="width:100%;">
+      <div class="step-num">9</div>
+      <span class="step-title">Claude API - Call #2</span>
+      <div class="step-file">ai_generator.py</div>
+      <div class="step-desc">Synthesizes retrieved chunks. No tools passed. Returns clean markdown answer.</div>
+    </div>
+    <div class="v-arrow">▼</div>
+  </div>
+</div>
+
+<!-- Row 10: RAGSystem cleanup (Backend) -->
+<div class="grid-row">
+  <div class="cell"></div>
+  <div class="cell">
+    <div class="step backend" style="width:100%;">
+      <div class="step-num">10</div>
+      <span class="step-title">RAGSystem cleanup</span>
+      <div class="step-file">rag_system.py</div>
+      <div class="step-desc">Calls <code style="color:#d8b4fe;font-size:0.65rem;">get_last_sources()</code>, resets source tracking. Calls <code style="color:#d8b4fe;font-size:0.65rem;">session_manager.add_exchange()</code> to persist history.</div>
+    </div>
+    <div class="v-arrow">▼</div>
+  </div>
+  <div class="cell"></div>
+</div>
+
+<!-- Row 11: FastAPI returns JSON (Backend) -->
+<div class="grid-row">
+  <div class="cell"></div>
+  <div class="cell">
+    <div class="step backend" style="width:100%;">
+      <div class="step-num">11</div>
+      <span class="step-title">FastAPI returns response</span>
+      <div class="step-file">app.py - QueryResponse</div>
+      <div class="step-desc">Returns <code style="color:#d8b4fe;font-size:0.65rem;">{answer, sources, session_id}</code> as JSON.</div>
+    </div>
+    <div class="v-arrow">▼</div>
+  </div>
+  <div class="cell"></div>
+</div>
+
+<!-- Row 12: Frontend renders (Frontend) -->
+<div class="grid-row">
+  <div class="cell">
+    <div class="step frontend" style="width:100%;">
+      <div class="step-num">12</div>
+      <span class="step-title">Frontend renders answer</span>
+      <div class="step-file">script.js - addMessage()</div>
+      <div class="step-desc">Loading bubble removed. Answer rendered via <code style="color:#93c5fd;font-size:0.65rem;">marked.parse()</code>. Sources shown in collapsible panel. Input re-enabled.</div>
+    </div>
+  </div>
+  <div class="cell"></div>
+  <div class="cell"></div>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#1d4ed8;"></div> Frontend (browser)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#6d28d9;"></div> Backend (Python / FastAPI)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#c2410c;"></div> Claude API (Anthropic)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#15803d;"></div> ChromaDB (vector store)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ca8a04;border-radius:50%;"></div> Decision point</div>
+  <div class="legend-item" style="color:#334155;">- - - Course-specific path only</div>
+</div>
+
+</body>
+</html>
