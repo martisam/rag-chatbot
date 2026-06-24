@@ -9,14 +9,15 @@ ChromaDB I/O are needed. They verify:
   - Session history is updated correctly
   - Exceptions from the AI layer propagate (not silently swallowed)
 """
+
 import pytest
 from unittest.mock import MagicMock, patch
 from vector_store import SearchResults
 
-
 # ---------------------------------------------------------------------------
 # Fixture
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def rag(tmp_path):
@@ -24,8 +25,10 @@ def rag(tmp_path):
     RAGSystem with mocked AIGenerator and VectorStore.
     Uses a temp dir for ChromaDB so nothing touches the real DB.
     """
-    with patch("rag_system.AIGenerator") as MockAI, \
-         patch("rag_system.VectorStore") as MockVS:
+    with (
+        patch("rag_system.AIGenerator") as MockAI,
+        patch("rag_system.VectorStore") as MockVS,
+    ):
 
         from rag_system import RAGSystem
         from config import Config
@@ -55,6 +58,7 @@ def rag(tmp_path):
 # Return values
 # ---------------------------------------------------------------------------
 
+
 class TestQueryReturnValues:
 
     def test_returns_answer_string(self, rag):
@@ -82,6 +86,7 @@ class TestQueryReturnValues:
 # ---------------------------------------------------------------------------
 # Session management
 # ---------------------------------------------------------------------------
+
 
 class TestSessionManagement:
 
@@ -112,6 +117,7 @@ class TestSessionManagement:
 # Source lifecycle
 # ---------------------------------------------------------------------------
 
+
 class TestSourceLifecycle:
 
     def test_sources_reset_after_each_query(self, rag):
@@ -131,6 +137,7 @@ class TestSourceLifecycle:
 # ---------------------------------------------------------------------------
 # Error propagation
 # ---------------------------------------------------------------------------
+
 
 class TestErrorPropagation:
 

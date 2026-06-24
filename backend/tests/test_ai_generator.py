@@ -4,13 +4,14 @@ Tests for AIGenerator in ai_generator.py.
 Verifies external behavior: API calls made, tools executed, results returned.
 Does not test internal state details.
 """
+
 import pytest
 from unittest.mock import MagicMock, patch, call
-
 
 # ---------------------------------------------------------------------------
 # Fixtures and helpers
 # ---------------------------------------------------------------------------
+
 
 def make_text_block(text="Default answer."):
     block = MagicMock()
@@ -19,7 +20,9 @@ def make_text_block(text="Default answer."):
     return block
 
 
-def make_tool_use_block(name="search_course_content", input_dict=None, tool_id="tool_abc"):
+def make_tool_use_block(
+    name="search_course_content", input_dict=None, tool_id="tool_abc"
+):
     block = MagicMock()
     block.type = "tool_use"
     block.name = name
@@ -47,6 +50,7 @@ def generator():
     """AIGenerator with a fully mocked Anthropic client."""
     with patch("ai_generator.anthropic") as mock_anthropic_module:
         from ai_generator import AIGenerator
+
         gen = AIGenerator(api_key="test_key", model="claude-sonnet-4-6")
         yield gen
 
@@ -54,6 +58,7 @@ def generator():
 # ---------------------------------------------------------------------------
 # Direct (no-tool) response path
 # ---------------------------------------------------------------------------
+
 
 class TestDirectResponse:
 
@@ -87,8 +92,7 @@ class TestDirectResponse:
             "end_turn", [make_text_block("ok")]
         )
         generator.generate_response(
-            query="Follow-up",
-            conversation_history="User: Hi\nAssistant: Hello"
+            query="Follow-up", conversation_history="User: Hi\nAssistant: Hello"
         )
         kwargs = generator.client.messages.create.call_args[1]
         assert "User: Hi" in kwargs["system"]
@@ -97,6 +101,7 @@ class TestDirectResponse:
 # ---------------------------------------------------------------------------
 # Single tool-use round path
 # ---------------------------------------------------------------------------
+
 
 class TestToolExecutionPath:
 
@@ -228,7 +233,9 @@ class TestToolExecutionPath:
             )
 
     def test_api_exception_propagates(self, generator):
-        generator.client.messages.create.side_effect = RuntimeError("API connection error")
+        generator.client.messages.create.side_effect = RuntimeError(
+            "API connection error"
+        )
         with pytest.raises(RuntimeError, match="API connection error"):
             generator.generate_response(query="What is MCP?")
 
@@ -236,6 +243,7 @@ class TestToolExecutionPath:
 # ---------------------------------------------------------------------------
 # Two sequential tool-use rounds
 # ---------------------------------------------------------------------------
+
 
 class TestTwoRoundPath:
 
@@ -323,6 +331,7 @@ class TestTwoRoundPath:
 # Early termination (round 2 returns end_turn, no forced call needed)
 # ---------------------------------------------------------------------------
 
+
 class TestEarlyTermination:
 
     def test_round2_end_turn_no_third_call(self, generator):
@@ -361,6 +370,7 @@ class TestEarlyTermination:
 # Tool error handling
 # ---------------------------------------------------------------------------
 
+
 class TestToolErrorHandling:
 
     def test_tool_error_stored_as_error_string_in_result(self, generator):
@@ -384,9 +394,12 @@ class TestToolErrorHandling:
         # The tool_result message must contain the error string
         second_kwargs = generator.client.messages.create.call_args_list[1][1]
         tool_result_msg = next(
-            m for m in second_kwargs["messages"] if m["role"] == "user"
+            m
+            for m in second_kwargs["messages"]
+            if m["role"] == "user"
             and isinstance(m["content"], list)
-            and m["content"] and m["content"][0].get("type") == "tool_result"
+            and m["content"]
+            and m["content"][0].get("type") == "tool_result"
         )
         assert "Tool error" in tool_result_msg["content"][0]["content"]
         assert "index out of range" in tool_result_msg["content"][0]["content"]

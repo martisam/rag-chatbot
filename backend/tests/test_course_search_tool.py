@@ -2,15 +2,16 @@
 Tests for CourseSearchTool.execute() in search_tools.py.
 All external I/O (ChromaDB, lesson links) is mocked.
 """
+
 import pytest
 from unittest.mock import MagicMock
 from search_tools import CourseSearchTool
 from vector_store import SearchResults
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_results(docs=None, meta=None, error=None):
     if error:
@@ -30,6 +31,7 @@ def make_store(docs=None, meta=None, error=None, lesson_link=None):
 # ---------------------------------------------------------------------------
 # Empty / error result paths
 # ---------------------------------------------------------------------------
+
 
 class TestEmptyAndErrorResults:
 
@@ -70,6 +72,7 @@ class TestEmptyAndErrorResults:
 # ---------------------------------------------------------------------------
 # Result formatting
 # ---------------------------------------------------------------------------
+
 
 class TestResultFormatting:
 
@@ -118,6 +121,7 @@ class TestResultFormatting:
 # ---------------------------------------------------------------------------
 # Source tracking
 # ---------------------------------------------------------------------------
+
 
 class TestSourceTracking:
 
@@ -177,24 +181,35 @@ class TestSourceTracking:
 # Argument pass-through to vector store
 # ---------------------------------------------------------------------------
 
+
 class TestArgPassThrough:
 
     def test_passes_query_to_store(self):
         store = make_store()
         CourseSearchTool(store).execute(query="what is MCP")
-        store.search.assert_called_once_with(query="what is MCP", course_name=None, lesson_number=None)
+        store.search.assert_called_once_with(
+            query="what is MCP", course_name=None, lesson_number=None
+        )
 
     def test_passes_course_name_to_store(self):
         store = make_store()
         CourseSearchTool(store).execute(query="MCP", course_name="My Course")
-        store.search.assert_called_once_with(query="MCP", course_name="My Course", lesson_number=None)
+        store.search.assert_called_once_with(
+            query="MCP", course_name="My Course", lesson_number=None
+        )
 
     def test_passes_lesson_number_to_store(self):
         store = make_store()
         CourseSearchTool(store).execute(query="MCP", lesson_number=4)
-        store.search.assert_called_once_with(query="MCP", course_name=None, lesson_number=4)
+        store.search.assert_called_once_with(
+            query="MCP", course_name=None, lesson_number=4
+        )
 
     def test_passes_all_filters_to_store(self):
         store = make_store()
-        CourseSearchTool(store).execute(query="MCP", course_name="Course X", lesson_number=2)
-        store.search.assert_called_once_with(query="MCP", course_name="Course X", lesson_number=2)
+        CourseSearchTool(store).execute(
+            query="MCP", course_name="Course X", lesson_number=2
+        )
+        store.search.assert_called_once_with(
+            query="MCP", course_name="Course X", lesson_number=2
+        )
