@@ -30,6 +30,14 @@ function setupEventListeners() {
     });
     
     
+    // New chat button
+    document.getElementById('newChatBtn').addEventListener('click', async () => {
+        if (currentSessionId) {
+            await fetch(`${API_URL}/session/${currentSessionId}`, { method: 'DELETE' });
+        }
+        createNewSession();
+    });
+
     // Suggested questions
     document.querySelectorAll('.suggested-item').forEach(button => {
         button.addEventListener('click', (e) => {
@@ -71,10 +79,18 @@ async function sendMessage() {
             })
         });
 
-        if (!response.ok) throw new Error('Query failed');
+        if (!response.ok) {
+            let detail = '';
+            try {
+                const errBody = await response.json();
+                detail = errBody.detail || '';
+            } catch (_) {}
+            const isApiError = /auth|api.?key|x-api-key|anthropic|invalid.*key|permission/i.test(detail);
+            throw Object.assign(new Error(detail || 'Query failed'), { isApiError });
+        }
 
         const data = await response.json();
-        
+
         // Update session ID if new
         if (!currentSessionId) {
             currentSessionId = data.session_id;
@@ -85,9 +101,11 @@ async function sendMessage() {
         addMessage(data.answer, 'assistant', data.sources);
 
     } catch (error) {
-        // Replace loading message with error
         loadingMessage.remove();
-        addMessage(`Error: ${error.message}`, 'assistant');
+        const msg = error.isApiError
+            ? 'DEMO Version - API Needed to unlock full version'
+            : `Error: ${error.message}`;
+        addMessage(msg, 'assistant');
     } finally {
         chatInput.disabled = false;
         sendButton.disabled = false;
@@ -125,7 +143,7 @@ function addMessage(content, type, sources = null, isWelcome = false) {
         html += `
             <details class="sources-collapsible">
                 <summary class="sources-header">Sources</summary>
-                <div class="sources-content">${sources.join(', ')}</div>
+                <div class="sources-content">${sources.map(s => s.link ? `<a href="${s.link}" target="_blank" rel="noopener noreferrer">${s.label}</a>` : s.label).join(', ')}</div>
             </details>
         `;
     }
