@@ -19,6 +19,8 @@ dev = [
     "pytest>=8.0",
     "pytest-mock>=3.14",
     "black>=24.0",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
 ]
 
 [tool.black]
@@ -32,3 +34,8 @@ exclude = '''
   | chroma_db
 )/
 '''
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+pythonpath = ["backend"]
+asyncio_mode = "auto"
