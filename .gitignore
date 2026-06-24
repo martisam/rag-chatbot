@@ -29,3 +29,12 @@ uploads/
 # OS
 .DS_Store
 Thumbs.db
+
+# Worktrees
+.trees/
+
+# Playwright MCP
+.playwright-mcp/
+
+# Virtual environments (including nested)
+.venv/
